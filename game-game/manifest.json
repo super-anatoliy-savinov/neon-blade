@@ -1,0 +1,22 @@
+{
+  "name": "Neon Blade",
+  "short_name": "Neon Blade",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#020205",
+  "theme_color": "#020205",
+  "description": "Неоновая аркада: режь шары, собирай монеты, качай клинки.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Blade</title>
+    <link rel="manifest" href="manifest.json">
+    <!-- ============================================================
+         GOOGLE H5 GAMES ADS (Ad Placement API)
+         Работает и в браузере, и внутри APK, собранного через PWABuilder —
+         в отличие от нативных плагинов, это просто JS-код.
+         data-adbreak-test="on" включает ТЕСТОВЫЙ режим (показывает фейковые
+         "демо"-рекламы) — оставь его на время разработки, чтобы случайно не
+         накрутить себе показы настоящей рекламы. Убери перед публикацией
+         (см. README.md, шаг про подготовку к публикации).
+         Замени ca-pub-XXXXXXXXXXXXXXXX на свой Publisher ID из AdSense.
+    ============================================================ -->
+    <script async data-adbreak-test="on"
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+        crossorigin="anonymous"></script>
+    <script>
+        window.adsbygoogle = window.adsbygoogle || [];
+        var adBreak = adConfig = function(o) { adsbygoogle.push(o); };
+    </script>
+    <style>
+        /* Запрещаем выделение текста на всей странице */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        html {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            overscroll-behavior: none;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #020205;
+            font-family: monospace;
+            position: fixed;
+            top: 0;
+            left: 0;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: auto;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            padding: 20px;
+            z-index: 2;
+            touch-action: none;
+        }
+
+        .hud { display: flex; justify-content: space-between; font-size: 22px; font-weight: bold; color: #fff; text-shadow: 0 0 8px #00ffff; }
+
+        .menu-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: auto;
+            background: rgba(5,5,8,0.95);
+            padding: 25px;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 20px #00ffff;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 360px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .menu-title { font-size: 32px; color: #fff; margin-bottom: 20px; text-shadow: 0 0 15px #ff00ff; }
+        .btn {
+            display: block; width: 100%; padding: 12px; margin: 8px 0;
+            background: transparent; border: 2px solid #ff00ff; color: #fff;
+            font-size: 16px; cursor: pointer; border-radius: 8px; font-weight: bold;
+            box-shadow: 0 0 10px rgba(255,0,255,0.2);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .btn:hover { background: #ff00ff; box-shadow: 0 0 20px #ff00ff; }
+        .btn-blue { border-color: #00ffff; }
+        .btn-blue:hover { background: #00ffff; box-shadow: 0 0 20px #00ffff; }
+
+        .shop-window, .leaderboard-window {
+            display: none;
+            max-height: 60vh;
+            overflow-y: auto !important;
+            touch-action: pan-y !important;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+
+        #shopItemsContainer, #leaderboardContainer {
+            touch-action: pan-y !important;
+            overflow-y: auto !important;
+        }
+
+        .shop-tabs { display: flex; margin-bottom: 10px; }
+        .tab-btn {
+            flex: 1; padding: 8px; border: 1px solid #00ffff; background: transparent;
+            color: #fff; cursor: pointer; font-size: 12px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .tab-btn.active { background: #00ffff; color: #000; font-weight: bold; }
+        .shop-item { display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; padding: 8px; margin: 4px 0; background: rgba(255,255,255,0.02); }
+        .buy-btn {
+            padding: 6px 12px; background: transparent; border: 1px solid #ff00ff;
+            color: #fff; cursor: pointer; font-size: 12px; border-radius: 4px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .buy-btn.equipped { border-color: #00ff00; color: #00ff00; }
+        .leader-row { display: flex; justify-content: space-between; color: #fff; padding: 6px 0; border-bottom: 1px dashed #222; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div class="ui-layer">
+        <div class="hud" id="gameHud" style="visibility: hidden;">
+            <div>Счет: <span id="scoreVal">0</span></div>
+            <div style="color: #ff00ff; text-shadow: 0 0 8px #ff00ff;">✨ <span id="coinsVal">0</span></div>
+        </div>
+        <div id="mainMenu" class="menu-container">
+            <div class="menu-title">NEON BLADE</div>
+            <button class="btn btn-blue" onclick="startGame()">ИГРАТЬ</button>
+            <button class="btn" onclick="openWindow('shopWindow')">МАГАЗИН</button>
+            <button class="btn" onclick="openWindow('leaderboardWindow')">ЛИДЕРЫ</button>
+            <button class="btn btn-blue" onclick="showRewardedAd()">+100 МОНЕТ ЗА РЕКЛАМУ</button>
+            <button class="btn" id="dailyBonusBtn" style="border-color: #ffff00; color: #ffff00;" onclick="tryClaimDaily()">📅 БОНУС: ПРОВЕРКА...</button>
+        </div>
+        <div id="shopWindow" class="menu-container shop-window">
+            <div class="menu-title" style="font-size: 20px; margin-bottom: 5px;">МАГАЗИН</div>
+            <div style="color: #ff00ff; text-shadow: 0 0 10px #ff00ff; font-weight: bold; margin-bottom: 10px; font-size: 16px;">
+                Баланс: ✨ <span id="shopCoinsVal">0</span>
+            </div>
+            <div class="shop-tabs">
+                <button class="tab-btn active" onclick="switchTab('blades')">МЕЧИ</button>
+                <button class="tab-btn" onclick="switchTab('balls')">ШАРЫ</button>
+                <button class="tab-btn" onclick="switchTab('levels')">УРОВНИ</button>
+            </div>
+            <div id="shopItemsContainer"></div>
+            <button class="btn btn-blue" style="margin-top: 10px; padding: 5px;" onclick="closeWindows()">НАЗАД</button>
+        </div>
+        <div id="leaderboardWindow" class="menu-container leaderboard-window">
+            <div class="menu-title" style="font-size: 20px;">ТОП ХАКЕРЫ</div>
+            <div id="leaderboardContainer"></div>
+            <button class="btn btn-blue" style="margin-top: 10px; padding: 5px;" onclick="closeWindows()">НАЗАД</button>
+        </div>
+        <div id="dailyBonusWindow" class="menu-container shop-window" style="border-color: #ffff00; box-shadow: 0 0 20px #ffff00;">
+            <div class="menu-title" style="font-size: 20px; color: #ffff00; text-shadow: 0 0 10px #ffff00;">📅 НАГРАДЫ ЗА ВХОД</div>
+            <div id="bonusStreakInfo" style="color: #fff; margin-bottom: 15px; font-size: 14px;">Ваша серия: 0 дней</div>
+            <div id="dailyDaysContainer" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 15px;"></div>
+            <button class="btn btn-blue" id="claimBonusFinalBtn" onclick="processClaim()">ЗАБРАТЬ НАГРАДУ</button>
+            <button class="btn" style="margin-top: 5px; padding: 5px;" onclick="closeWindows()">НАЗАД</button>
+        </div>
+        <div id="customModal" style="
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        ">
+            <div style="
+                background: rgba(5,5,8,0.98);
+                border: 2px solid #00ffff;
+                box-shadow: 0 0 30px #00ffff;
+                border-radius: 15px;
+                padding: 30px 25px;
+                text-align: center;
+                max-width: 320px;
+                width: 88%;
+                font-family: monospace;
+            ">
+                <div id="modalIcon" style="font-size: 36px; margin-bottom: 10px;"></div>
+                <div id="modalText" style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 20px; white-space: pre-line;"></div>
+                <button onclick="closeModal()" style="
+                    padding: 10px 30px;
+                    background: transparent;
+                    border: 2px solid #00ffff;
+                    color: #fff;
+                    font-size: 15px;
+                    font-family: monospace;
+                    font-weight: bold;
+                    cursor: pointer;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0,255,255,0.3);
+                    -webkit-tap-highlight-color: transparent;
+                    touch-action: manipulation;
+                ">ОК</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    window.showModal = function(text, icon) {
+        const modal = document.getElementById('customModal');
+        document.getElementById('modalText').innerText = text;
+        document.getElementById('modalIcon').innerText = icon || '';
+        modal.style.display = 'flex';
+    };
+    window.closeModal = function() {
+        document.getElementById('customModal').style.display = 'none';
+    };
+
+    // ================== РЕКЛАМА (Google H5 Games Ads / Ad Placement API) ==================
+    // Это чистый JS, без нативных плагинов — поэтому одинаково работает и
+    // в браузере на компе, и внутри APK, собранного через PWABuilder.
+    const AdManager = {
+        showInterstitial() {
+            if (typeof adBreak !== 'function') return;
+            try {
+                adBreak({
+                    type: 'next',              // показ на "естественной" паузе — старт игры
+                    name: 'game_start',
+                    adBreakDone: () => {}
+                });
+            } catch (e) { console.warn('Interstitial error:', e); }
+        },
+
+        showRewarded(onReward) {
+            if (typeof adBreak !== 'function') {
+                // SDK ещё не загрузился (например, нет интернета при тесте) —
+                // не блокируем игрока, сразу даём награду.
+                onReward();
+                return;
+            }
+            try {
+                adBreak({
+                    type: 'reward',
+                    name: 'coins_reward',
+                    beforeReward: (showAdFn) => { showAdFn(); },
+                    adViewed: () => { onReward(); },
+                    adDismissed: () => { /* закрыл до конца — награду не даём */ }
+                });
+            } catch (e) {
+                console.warn('Rewarded error:', e);
+                onReward();
+            }
+        }
+    };
+    // ========================================================================
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('selectstart', e => e.preventDefault());
+
+        document.addEventListener('touchmove', function(e) {
+            let el = e.target;
+            let isScrollable = false;
+            while (el && el !== document.body) {
+                const style = window.getComputedStyle(el);
+                const ta = style.getPropertyValue('touch-action');
+                if (ta === 'pan-y' || (el.scrollHeight > el.clientHeight && style.overflowY !== 'hidden')) {
+                    isScrollable = true;
+                    break;
+                }
+                el = el.parentElement;
+            }
+            if (!isScrollable) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        let startY = 0;
+        document.addEventListener('touchstart', function(e) {
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        let gameState = 'menu', score = 0, spawnTimer = 0;
+        let targets = [], particles = [], bladeTrail = [], floatingTexts = [];
+
+        let wallet = {
+            coins: parseInt(localStorage.getItem('neon_coins')) || 100,
+            bestScore: parseInt(localStorage.getItem('neon_best')) || 0
+        };
+        let inventory = JSON.parse(localStorage.getItem('neon_inv')) || {
+            blades: ['default'],
+            balls: ['default'],
+            levels: ['cyber']
+        };
+        let equipped = JSON.parse(localStorage.getItem('neon_eq')) || {
+            blade: 'default',
+            ball: 'default',
+            level: 'cyber'
+        };
+
+        window.currentLang = 'ru';
+
+        const AudioEngine = {
+            ctx: null,
+            init() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            },
+            playSlice() {
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+                } catch(e) {}
+            },
+            playExplosion() {
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(40, this.ctx.currentTime + 0.5);
+                    gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.5);
+                } catch(e) {}
+            },
+            playClick() {
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(580, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+                } catch(e) {}
+            }
+        };
+
+        const ITEMS = {
+            blades: [
+                {id: 'default', name: 'Лазер Циан', desc: 'Стартовый кибер клинок', cost: 0, color: '#00ffff'},
+                {id: 'ruby', name: 'Неоновая Кровь', desc: 'Х2 комбо очки', cost: 300, color: '#ff0055'},
+                {id: 'gold', name: 'Вспышка Золота', desc: '+1 монета за срез', cost: 700, color: '#ffea00'},
+                {id: 'void', name: 'Ультра Фиолет', desc: 'Замедление шаров на 20%', cost: 1500, color: '#bd00ff'},
+                {id: 'overdrive', name: 'Овердрайв', desc: 'Увеличивает хитбокс на 30%', cost: 2200, color: '#ff3300'},
+                {id: 'diamond', name: 'Алмазный Пульс', desc: 'Шанс 15% получить +50 монет', cost: 3500, color: '#00ffaa'},
+                {id: 'infinity', name: 'Лорд Бесконечности', desc: 'Авто-срез бомб без взрыва', cost: 6000, color: '#ffffff'},
+                {id: 'pulse_edge', name: 'Клинок Пульса', desc: 'При срезе дрона дает +100 монет', cost: 8500, color: '#00ff66'},
+                {id: 'plasma_reaper', name: 'Жнец Плазмы', desc: 'Уничтожает всех врагов на экране при комбо 10+', cost: 12000, color: '#ff00aa'},
+                {id: 'epsilon_edge', name: 'Прототип Эпсилон', desc: 'Каждые 5 очков приносят +10 бонусных монет', cost: 18000, color: '#ffff00'},
+                {id: 'matrix_hacker', name: 'Взлом Матрицы', desc: 'Глитч-дроны дают х5 наград', cost: 25000, color: '#00ff33'},
+                {id: 'world_breaker', name: 'Разрушитель Миров', desc: 'Автоматически уничтожает все шипы на экране без штрафа', cost: 45000, color: '#ff3300'},
+                {id: 'god_blade', name: 'НЕОНОВЫЙ БОГ', desc: 'Х5 ОЧКОВ И Х5 МОНЕТ ЗА ВСЁ. АБСОЛЮТНАЯ ВЛАСТЬ.', cost: 50000, color: '#ffff00'},
+                {id: 'supernova', name: 'Вспышка Сверхновой', desc: 'Замораживает скорость падения шаров, когда они летят вниз', cost: 120000, color: '#ff7700'},
+                {id: 'singularity_lord', name: 'Сингулярный Творец', desc: 'Х10 очков и монет. Бесконечный щит от одной бомбы за раунд.', cost: 500000, color: '#00ffff'}
+            ],
+            balls: [
+                {id: 'default', name: 'Ядовитый Неон', desc: 'Обычная сфера', cost: 0, color: '#39ff14', radius: 32},
+                {id: 'cyber_bubble', name: 'Кибер Пузырь', desc: 'Медленная сфера для новичков', cost: 150, color: '#00a8ff', radius: 38},
+                {id: 'giant', name: 'Матка Энергии', desc: 'Огромная (Легче резать)', cost: 250, color: '#00ebff', radius: 46},
+                {id: 'unstable', name: 'Ядро Плазмы', desc: 'Дает х2 валюты при срезе', cost: 600, color: '#ff5d00', radius: 26},
+                {id: 'matrix', name: 'Глитч Код', desc: 'Случайные +5 очков', cost: 1200, color: '#00ff66', radius: 34},
+                {id: 'neutron', name: 'Нейтронная Звезда', desc: 'Замораживает счетчик комбо', cost: 2000, color: '#e100ff', radius: 30},
+                {id: 'anti_matter', name: 'Антиматерия', desc: 'Отталкивает бомбы в стороны', cost: 3000, color: '#ffaa00', radius: 28},
+                {id: 'singularity', name: 'Сингулярность', desc: 'Очки увеличиваются каждую секунду', cost: 4500, color: '#4400ff', radius: 22},
+                {id: 'chrono_sphere', name: 'Хроно-Сфера', desc: 'Увеличивает время нахождения шаров на экране на 40%', cost: 9000, color: '#00ffaa', radius: 25},
+                {id: 'dark_matter', name: 'Тёмная Материя', desc: 'При срезе взрывает ближайшие бомбы', cost: 15000, color: '#7a00ff', radius: 28},
+                {id: 'spark_core', name: 'Искрящееся Ядро', desc: 'При срезе спавнит 3 дополнительные искры, дающие монеты', cost: 22000, color: '#ffff00', radius: 30},
+                {id: 'nebula_core', name: 'Ядро Туманности', desc: 'Шанс 10% превратить бомбу в золотой шар', cost: 35000, color: '#ff00aa', radius: 32},
+                {id: 'star_walker', name: 'Звездный Странник', desc: 'Каждые 10 срезанных сфер дают джекпот в 150 монет', cost: 65000, color: '#00e1ff', radius: 27},
+                {id: 'god_sphere', name: 'СФЕРА ТВОРЦА', desc: 'Увеличивает шанс спавна дронов до 40%. УЛЬТРА ОЧКИ!', cost: 100000, color: '#ffffff', radius: 35},
+                {id: 'quantum_phantom', name: 'Квантовый Фантом', desc: 'Шипы при срезе приносят +50 монет вместо штрафа', cost: 180000, color: '#ff00ff', radius: 24},
+                {id: 'odin_eye', name: 'Глаз Одина', desc: 'Подсвечивает траекторию бомб. Удваивает весь финальный выигрыш.', cost: 400000, color: '#00ff66', radius: 33}
+            ],
+            levels: [
+                {id: 'cyber', name: 'Сектор Альфа', desc: 'Классическая темная кибер-сетка', cost: 0, bg: '#020205', grid: '#14142a', gridStep: 70},
+                {id: 'synth', name: 'Магистраль 80-х', desc: 'Плотный фиолетовый ретро-вейв', cost: 400, bg: '#0a0012', grid: '#cc0088', gridStep: 45},
+                {id: 'toxic', name: 'Радиация', desc: 'Редкая кислотно-зеленая решетка', cost: 1000, bg: '#000602', grid: '#2de312', gridStep: 100},
+                {id: 'tokyo', name: 'Неоновый Токио', desc: 'Кроваво-красный мегаполис', cost: 1800, bg: '#080002', grid: '#ff003c', gridStep: 30},
+                {id: 'ice_sector', name: 'Ледяной Сектор 0°', desc: 'Арктический цифровой мороз', cost: 3500, bg: '#000b14', grid: '#00ebff', gridStep: 85},
+                {id: 'void_abyss', name: 'Бездна Пустоты', desc: 'Минимум линий, полная темнота', cost: 6000, bg: '#000000', grid: '#111111', gridStep: 150},
+                {id: 'omega_slums', name: 'Сектор Омега', desc: 'Заброшенные уровни с редкой ржавой сеткой', cost: 12000, bg: '#050300', grid: '#ff6600', gridStep: 90},
+                {id: 'neon_shanghai', name: 'Шанхай 2099', desc: 'Изумрудно-золотые фрактальные нити', cost: 15000, bg: '#000503', grid: '#ffd700', gridStep: 55},
+                {id: 'cerera_station', name: 'Станция Церера', desc: 'Глубокий космос со сверхплотными белыми лазерами', cost: 32000, bg: '#010108', grid: '#ffffff', gridStep: 25},
+                {id: 'cyber_underground', name: 'Трущобы Хакеров', desc: 'Хаотичные неоновые провода вместо сетки', cost: 50000, bg: '#040008', grid: '#00ff88', gridStep: 40},
+                {id: 'chroma_palace', name: 'Хроматический Дворец', desc: 'Редкие, но очень толстые розовые лучи роскоши', cost: 95000, bg: '#09000d', grid: '#ff00aa', gridStep: 60},
+                {id: 'atlantis_2099', name: 'Неоновая Атлантида', desc: 'Глубоководный бирюзовый мегаполис хакеров', cost: 200000, bg: '#00050a', grid: '#00ffff', gridStep: 35},
+                {id: 'multiverse_core', name: 'ЯДРО МУЛЬТИВСЕЛЕННОЙ', desc: 'Переливающийся хаос. Максимальная частота линий.', cost: 250000, bg: '#0c001f', grid: '#ff00ff', gridStep: 20},
+                {id: 'infinity_matrix', name: 'МАТРИЦА БЕСКОНЕЧНОСТИ', desc: 'Абсолютный финал. Сверхвысокая частота бегущих нитей кода.', cost: 1000000, bg: '#000000', grid: '#39ff14', gridStep: 15}
+            ],
+        };
+
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x; this.y = y; this.text = text; this.color = color; this.alpha = 1;
+            }
+            update() { this.y -= 1.5; this.alpha -= 0.03; }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.font = 'bold 20px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.strokeText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        let gameLevel = 1;
+        let isShieldActive = true;
+        let starWalkerCounter = 0;
+
+        class Target {
+            constructor() {
+                let currentBallType = ITEMS.balls.find(b => b.id === equipped.ball) || ITEMS.balls[0];
+                this.x = Math.random() * (canvas.width - 100) + 50;
+                this.y = canvas.height + 50;
+                let speedScale = canvas.height / 800;
+                let difficultyMod = 1 + (gameLevel * 0.12);
+                if (equipped.ball === 'cyber_bubble') difficultyMod *= 0.75;
+                this.vx = (Math.random() - 0.5) * 5 * difficultyMod;
+                this.vy = -(Math.random() * 4 + 11) * (speedScale > 1 ? 1 : speedScale * 1.1) * difficultyMod;
+                this.gravity = 0.22;
+                let droneChance = equipped.ball === 'god_sphere' ? 0.40 : 0.12;
+                this.isGlitchDrone = Math.random() < droneChance && score > 5;
+                this.isBomb = !this.isGlitchDrone && Math.random() < 0.16;
+                this.isSpike = !this.isGlitchDrone && !this.isBomb && Math.random() < 0.08;
+                if (this.isBomb && equipped.ball === 'nebula_core' && Math.random() < 0.10) {
+                    this.isBomb = false;
+                    floatingTexts.push(new FloatingText(this.x, this.y, "ТРАНСФОРМАЦИЯ ЯДРА 💠", "#ff00aa"));
+                }
+                if (this.isBomb && equipped.ball === 'anti_matter') {
+                    this.vx = this.x > canvas.width / 2 ? 6 : -6;
+                }
+                if (this.isGlitchDrone) {
+                    this.color = '#ff00ff'; this.radius = 20; this.vx *= 1.5;
+                } else if (this.isBomb) {
+                    this.color = (equipped.ball === 'odin_eye') ? '#ffaa00' : '#ff003c'; this.radius = 32;
+                } else if (this.isSpike) {
+                    this.color = '#ffaa00'; this.radius = 33;
+                } else {
+                    this.radius = currentBallType.radius || 32;
+                    this.color = currentBallType.color || '#39ff14';
+                }
+                this.sliced = false;
+                this.sliceOffset = 0;
+            }
+
+            update() {
+                if (equipped.blade === 'supernova' && this.vy > 0) {
+                    this.vy += this.gravity * 0.35;
+                } else {
+                    this.vy += this.gravity;
+                }
+                let speedMod = equipped.blade === 'void' ? 0.82 : 1;
+                this.x += this.vx * speedMod;
+                this.y += this.vy * speedMod;
+            }
+
+            draw() {
+                ctx.save();
+                if (!this.sliced) {
+                    ctx.beginPath();
+                    if (this.isGlitchDrone) {
+                        ctx.moveTo(this.x, this.y - this.radius);
+                        ctx.lineTo(this.x + this.radius, this.y + this.radius);
+                        ctx.lineTo(this.x - this.radius, this.y + this.radius);
+                        ctx.closePath();
+                    } else if (this.isSpike) {
+                        ctx.moveTo(this.x, this.y - this.radius);
+                        ctx.lineTo(this.x + this.radius * 0.3, this.y - this.radius * 0.3);
+                        ctx.lineTo(this.x + this.radius, this.y);
+                        ctx.lineTo(this.x + this.radius * 0.3, this.y + this.radius * 0.3);
+                        ctx.lineTo(this.x, this.y + this.radius);
+                        ctx.lineTo(this.x - this.radius * 0.3, this.y + this.radius * 0.3);
+                        ctx.lineTo(this.x - this.radius, this.y);
+                        ctx.lineTo(this.x - this.radius * 0.3, this.y - this.radius * 0.3);
+                        ctx.closePath();
+                    } else {
+                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    }
+                    ctx.fillStyle = (this.isBomb || this.isGlitchDrone || this.isSpike) ? '#120002' : '#030308';
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 4;
+                    ctx.fill();
+                    ctx.stroke();
+                    if (!this.isSpike) {
+                        ctx.save();
+                        if (this.isBomb) {
+                            let pulse = 1 + Math.sin(Date.now() * 0.012) * 0.15;
+                            ctx.strokeStyle = '#550005'; ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(this.x - this.radius * 0.7, this.y); ctx.lineTo(this.x + this.radius * 0.7, this.y);
+                            ctx.moveTo(this.x, this.y - this.radius * 0.7); ctx.lineTo(this.x, this.y + this.radius * 0.7);
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, this.radius * 0.4 * pulse, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ff003c'; ctx.fill();
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, this.radius * 0.15, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff'; ctx.fill();
+                        } else if (this.isGlitchDrone) {
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y + 4, this.radius * 0.25, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff'; ctx.fill();
+                        } else {
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, this.radius * 0.45, 0, Math.PI * 2);
+                            ctx.fillStyle = this.color; ctx.fill();
+                            ctx.beginPath();
+                            ctx.arc(this.x - this.radius * 0.1, this.y - this.radius * 0.1, this.radius * 0.15, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff'; ctx.fill();
+                        }
+                        ctx.restore();
+                    }
+                } else {
+                    ctx.lineWidth = 4; ctx.strokeStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x - this.sliceOffset, this.y, this.radius, Math.PI * 0.5, Math.PI * 1.5);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.sliceOffset, this.y, this.radius, Math.PI * 1.5, Math.PI * 0.5);
+                    ctx.stroke();
+                    this.sliceOffset += 5;
+                }
+                ctx.restore();
+            }
+
+            slice() {
+                if (this.sliced) return;
+                this.sliced = true;
+                if (this.isSpike && equipped.blade === 'world_breaker') {
+                    floatingTexts.push(new FloatingText(this.x, this.y, "АННИГИЛЯЦИЯ ШИПА 🎇", "#ff3300"));
+                    AudioEngine.playSlice(); return;
+                }
+                if (this.isSpike && equipped.ball === 'quantum_phantom') {
+                    wallet.coins += 50;
+                    floatingTexts.push(new FloatingText(this.x, this.y - 20, "КВАНТОВЫЙ СДВИГ +50✨", "#ff00ff"));
+                    AudioEngine.playSlice(); saveGame(); return;
+                }
+                if (this.isSpike) {
+                    score = Math.max(0, score - 5);
+                    floatingTexts.push(new FloatingText(this.x, this.y - 20, "СБОЙ СИСТЕМЫ -5 ⚡", "#ffaa00"));
+                    AudioEngine.playExplosion(); saveGame(); return;
+                }
+                if (this.isBomb) {
+                    if (equipped.blade === 'singularity_lord' && isShieldActive) {
+                        isShieldActive = false;
+                        floatingTexts.push(new FloatingText(this.x, this.y - 20, "🛡️ ЩИТ СИНГУЛЯРНОСТИ СПАС!", "#00ffff"));
+                        return;
+                    }
+                    if (equipped.blade === 'infinity' || equipped.blade === 'god_blade' || equipped.blade === 'singularity_lord') {
+                        floatingTexts.push(new FloatingText(this.x, this.y - 20, "БОМБА ОБЕЗВРЕЖЕНА", "#ffffff"));
+                        return;
+                    }
+                    AudioEngine.playExplosion(); gameOver(); return;
+                }
+                AudioEngine.playSlice();
+                let p = 1, c = 1;
+                if (equipped.blade === 'ruby') p = 2;
+                if (equipped.blade === 'gold') c = 2;
+                if (equipped.blade === 'matrix_hacker' && this.isGlitchDrone) { p *= 5; c *= 5; }
+                if (equipped.blade === 'god_blade') { p *= 5; c *= 5; }
+                if (equipped.blade === 'singularity_lord') { p *= 10; c *= 10; }
+                if (equipped.ball === 'unstable') c *= 2;
+                if (equipped.ball === 'matrix' && Math.random() < 0.4) p += 5;
+                if (this.isGlitchDrone && equipped.blade !== 'matrix_hacker' && equipped.blade !== 'god_blade' && equipped.blade !== 'singularity_lord') { p += 4; c += 9; }
+                if (equipped.ball === 'god_sphere') { p += 3; c += 2; }
+                if (this.isGlitchDrone && equipped.blade === 'pulse_edge') {
+                    c += 100;
+                    floatingTexts.push(new FloatingText(this.x, this.y - 40, "✨ ПУЛЬС-БОНУС +100! ✨", "#00ff66"));
+                }
+                if (equipped.blade === 'epsilon_edge' && score % 5 === 0 && score > 0) {
+                    c += 10;
+                    floatingTexts.push(new FloatingText(this.x, this.y - 40, "🔋 ЭПСИЛОН +10✨", "#ffff00"));
+                }
+                if (equipped.ball === 'spark_core' && Math.random() < 0.35) {
+                    c += 15;
+                    floatingTexts.push(new FloatingText(this.x, this.y - 40, "⚡ ИСКРА +15✨", "#ffff00"));
+                }
+                if (equipped.ball === 'star_walker') {
+                    starWalkerCounter++;
+                    if (starWalkerCounter >= 10) {
+                        c += 150; starWalkerCounter = 0;
+                        floatingTexts.push(new FloatingText(canvas.width / 2, canvas.height / 2, "🌌 ДЖЕКПОТ +150! 🌌", "#00e1ff"));
+                    }
+                }
+                if (equipped.blade === 'diamond' && Math.random() < 0.15) {
+                    c += 50;
+                    floatingTexts.push(new FloatingText(this.x, this.y - 40, "+50 ДЖЕКПОТ! ✨", "#00ffaa"));
+                }
+                if (equipped.blade === 'plasma_reaper' && score % 10 === 0 && score > 0) {
+                    targets.forEach(t => { if (!t.sliced && !t.isBomb && !t.isSpike) t.slice(); });
+                    floatingTexts.push(new FloatingText(canvas.width / 2, canvas.height / 2, "ВСПЫШКА ПЛАЗМЫ!💥", "#ff00aa"));
+                }
+                if (equipped.ball === 'dark_matter') {
+                    targets.forEach(t => {
+                        if (t.isBomb && Math.hypot(this.x - t.x, this.y - t.y) < 200) {
+                            t.sliced = true;
+                            floatingTexts.push(new FloatingText(t.x, t.y, "АННИГИЛЯЦИЯ БОМБЫ 💥", "#7a00ff"));
+                        }
+                    });
+                }
+                score += p;
+                wallet.coins += c;
+                let nextLevel = Math.floor(score / 15) + 1;
+                if (nextLevel > gameLevel) {
+                    gameLevel = nextLevel;
+                    floatingTexts.push(new FloatingText(canvas.width / 2, canvas.height / 3, `УРОВЕНЬ ПОВЫШЕН: ${gameLevel}!`, '#ff00ff'));
+                }
+                floatingTexts.push(new FloatingText(this.x, this.y - 20, `+${p} ОЧКОВ (+${c}✨)`, this.color));
+                for (let i = 0; i < 6; i++) particles.push({
+                    x: this.x, y: this.y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    alpha: 1, color: this.color
+                });
+                saveGame();
+            }
+        }
+
+        function handleMove(x, y) {
+            if (gameState !== 'playing') return;
+            let currentBlade = ITEMS.blades.find(b => b.id === equipped.blade) || ITEMS.blades[0];
+            bladeTrail.push({x, y, age: 0, color: currentBlade.color});
+            let touchRadius = isMobile ? 35 : 25;
+            if (equipped.blade === 'overdrive') touchRadius *= 1.3;
+            for (let target of targets) {
+                if (!target.sliced && Math.hypot(x - target.x, y - target.y) < target.radius + touchRadius) {
+                    target.slice();
+                }
+            }
+        }
+
+        window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+        window.addEventListener('touchmove', (e) => {
+            if (gameState === 'playing' && e.touches.length > 0) {
+                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
+
+        setInterval(() => {
+            if (gameState === 'playing' && equipped.ball === 'singularity') {
+                score += 1;
+                document.getElementById('scoreVal').innerText = score;
+            }
+        }, 1000);
+
+        const DAILY_REWARDS = [150, 300, 500, 800, 1200, 2000, 5000];
+
+        window.updateDailyTimer = function () {
+            const btn = document.getElementById('dailyBonusBtn');
+            if (!btn) return;
+            const lastClaim = parseInt(localStorage.getItem('neon_last_claim_time')) || 0;
+            const now = Date.now();
+            const cooldown = 24 * 60 * 60 * 1000;
+            if (now - lastClaim < cooldown) {
+                const timeLeft = cooldown - (now - lastClaim);
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                btn.innerText = `📅 КД: ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+                btn.style.opacity = "0.6";
+            } else {
+                btn.innerText = "📅 БОНУС: ЗАБРАТЬ!";
+                btn.style.opacity = "1";
+            }
+        };
+
+        window.tryClaimDaily = function () {
+            AudioEngine.playClick();
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('dailyBonusWindow').style.display = 'block';
+            let streak = parseInt(localStorage.getItem('neon_streak_7')) || 0;
+            const lastClaim = parseInt(localStorage.getItem('neon_last_claim_time')) || 0;
+            const now = Date.now();
+            const cooldown = 24 * 60 * 60 * 1000;
+            if (lastClaim > 0 && now - lastClaim > cooldown * 2) {
+                streak = 0;
+                localStorage.setItem('neon_streak_7', 0);
+            }
+            document.getElementById('bonusStreakInfo').innerText = `Текущая серия подрядов: ${streak} из 7 дней`;
+            const container = document.getElementById('dailyDaysContainer');
+            container.innerHTML = '';
+            for (let i = 0; i < 7; i++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.style.border = "1px solid #ff00ff";
+                dayDiv.style.padding = "5px";
+                dayDiv.style.fontSize = "11px";
+                dayDiv.style.textAlign = "center";
+                dayDiv.style.background = i < streak ? "rgba(0,255,0,0.2)" : "transparent";
+                if (i === streak && now - lastClaim >= cooldown) dayDiv.style.borderColor = "#ffff00";
+                dayDiv.innerHTML = `<div style="color:#888">Д${i+1}</div><div style="color:#ffff00;font-weight:bold;">${DAILY_REWARDS[i]}</div>`;
+                container.appendChild(dayDiv);
+            }
+            const finalBtn = document.getElementById('claimBonusFinalBtn');
+            if (now - lastClaim < cooldown) {
+                finalBtn.innerText = "ЕЩЕ НЕ ВРЕМЯ";
+                finalBtn.disabled = true;
+                finalBtn.style.opacity = "0.5";
+            } else {
+                finalBtn.innerText = `ЗАБРАТЬ +${DAILY_REWARDS[streak]} ✨`;
+                finalBtn.disabled = false;
+                finalBtn.style.opacity = "1";
+            }
+        };
+
+        window.processClaim = function () {
+            AudioEngine.playClick();
+            let streak = parseInt(localStorage.getItem('neon_streak_7')) || 0;
+            const reward = DAILY_REWARDS[streak];
+            wallet.coins += reward;
+            streak++;
+            if (streak > 6) streak = 0;
+            localStorage.setItem('neon_streak_7', streak);
+            localStorage.setItem('neon_last_claim_time', Date.now());
+            saveGame(); closeWindows(); updateDailyTimer();
+            showModal(`Вы получили ${reward} монет!`, '📅✨');
+        };
+
+        setInterval(updateDailyTimer, 1000);
+        updateDailyTimer();
+
+        function loop() {
+            requestAnimationFrame(loop);
+            let currentLevel = ITEMS.levels.find(l => l.id === equipped.level) || ITEMS.levels[0];
+            if (equipped.level === 'atlantis_2099') {
+                let wave = Math.sin(Date.now() * 0.001) * 6;
+                ctx.fillStyle = `rgb(0, ${Math.floor(10 + wave)}, ${Math.floor(22 + wave)})`;
+            } else {
+                ctx.fillStyle = currentLevel.bg || '#020205';
+            }
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.strokeStyle = currentLevel.grid || '#1b1b3a';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.2;
+            if (equipped.level === 'neon_shanghai') {
+                ctx.globalAlpha = 0.15 + Math.sin(Date.now() * 0.003) * 0.1;
+                ctx.lineWidth = 1.5;
+            }
+            let step = currentLevel.gridStep || 70;
+            let offset = 0;
+            if (equipped.level === 'infinity_matrix') {
+                offset = (Date.now() * 0.05) % step;
+                ctx.globalAlpha = 0.3;
+            }
+            for (let i = 0; i < canvas.width; i += step) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+            for (let j = 0; j < canvas.height; j += step) {
+                ctx.beginPath(); ctx.moveTo(0, j + offset); ctx.lineTo(canvas.width, j + offset); ctx.stroke();
+            }
+            ctx.restore();
+
+            if (gameState === 'playing') {
+                spawnTimer++;
+                let currentSpawnDelay = Math.max(16, 36 - Math.floor(score / 3));
+                if (equipped.ball === 'chrono_sphere') currentSpawnDelay *= 1.4;
+                if (spawnTimer > currentSpawnDelay) { targets.push(new Target()); spawnTimer = 0; }
+                for (let i = targets.length - 1; i >= 0; i--) {
+                    targets[i].update(); targets[i].draw();
+                    if (targets[i].y > canvas.height + 100) targets.splice(i, 1);
+                }
+            }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].update(); floatingTexts[i].draw();
+                if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i, 1);
+            }
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].x += particles[i].vx;
+                particles[i].y += particles[i].vy;
+                particles[i].alpha -= 0.03;
+                ctx.save();
+                ctx.globalAlpha = particles[i].alpha;
+                ctx.fillStyle = particles[i].color;
+                ctx.fillRect(particles[i].x, particles[i].y, 3, 3);
+                ctx.restore();
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+            for (let i = bladeTrail.length - 1; i >= 0; i--) {
+                bladeTrail[i].age++;
+                if (bladeTrail[i].age > 12) { bladeTrail.splice(i, 1); }
+            }
+            for (let i = 1; i < bladeTrail.length; i++) {
+                ctx.save();
+                ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                let wMod = equipped.blade === 'singularity_lord' ? 2.5 : 1;
+                ctx.beginPath();
+                ctx.strokeStyle = bladeTrail[i].color;
+                ctx.lineWidth = 14 * (1 - bladeTrail[i].age / 12) * wMod;
+                ctx.moveTo(bladeTrail[i-1].x, bladeTrail[i-1].y);
+                ctx.lineTo(bladeTrail[i].x, bladeTrail[i].y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4 * (1 - bladeTrail[i].age / 12) * wMod;
+                ctx.moveTo(bladeTrail[i-1].x, bladeTrail[i-1].y);
+                ctx.lineTo(bladeTrail[i].x, bladeTrail[i].y);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function saveGame() {
+            localStorage.setItem('neon_coins', wallet.coins);
+            localStorage.setItem('neon_best', wallet.bestScore);
+            localStorage.setItem('neon_inv', JSON.stringify(inventory));
+            localStorage.setItem('neon_eq', JSON.stringify(equipped));
+            let el;
+            el = document.getElementById('coinsVal'); if (el) el.innerText = wallet.coins;
+            el = document.getElementById('scoreVal'); if (el) el.innerText = score;
+            el = document.getElementById('shopCoinsVal'); if (el) el.innerText = wallet.coins;
+        }
+
+        window.showRewardedAd = function () {
+            AudioEngine.playClick();
+            AdManager.showRewarded(() => {
+                wallet.coins += 100;
+                saveGame();
+                showModal('+100 монет!', '✨');
+                let shopWin = document.getElementById('shopWindow');
+                if (shopWin && shopWin.style.display === 'block') renderShop(currentTab);
+            });
+        };
+
+        window.startGame = function () {
+            AudioEngine.playClick();
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('gameHud').style.visibility = 'visible';
+            score = 0; targets = []; floatingTexts = [];
+            gameLevel = 1; isShieldActive = true; starWalkerCounter = 0;
+            gameState = 'playing';
+            AdManager.showInterstitial();
+        };
+
+        window.gameOver = function () {
+            gameState = 'menu';
+            document.getElementById('gameHud').style.visibility = 'hidden';
+            document.getElementById('mainMenu').classList.remove('hidden');
+            if (score > wallet.bestScore) wallet.bestScore = score;
+            saveGame();
+            showModal(`Счет: ${score}\nЛучший: ${wallet.bestScore}`, '💀');
+        };
+
+        window.openWindow = function (id) {
+            AudioEngine.playClick();
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById(id).style.display = 'block';
+            if (id === 'shopWindow') renderShop('blades');
+            if (id === 'leaderboardWindow') renderLocalLeaderboard();
+        };
+
+        window.closeWindows = function () {
+            AudioEngine.playClick();
+            document.getElementById('shopWindow').style.display = 'none';
+            document.getElementById('leaderboardWindow').style.display = 'none';
+            document.getElementById('dailyBonusWindow').style.display = 'none';
+            document.getElementById('mainMenu').classList.remove('hidden');
+            gameState = 'menu';
+        };
+
+        let currentTab = 'blades';
+        window.switchTab = function (tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderShop(tab);
+        };
+
+        function renderShop(category) {
+            const container = document.getElementById('shopItemsContainer');
+            container.innerHTML = '';
+            ITEMS[category].forEach(item => {
+                const isOwned = inventory[category].includes(item.id);
+                const typeKey = category === 'blades' ? 'blade' : category === 'balls' ? 'ball' : 'level';
+                const isEquipped = equipped[typeKey] === item.id;
+                let btnText = isEquipped ? 'ЭКИП.' : isOwned ? 'ОДЕТЬ' : `💲${item.cost}`;
+                let btnClass = isEquipped ? 'buy-btn equipped' : 'buy-btn';
+                const row = document.createElement('div');
+                row.className = 'shop-item';
+                row.innerHTML = `<div style="text-align:left;"><div style="color:${item.color||'#fff'};font-weight:bold;">${item.name}</div><div style="color:#666;font-size:10px;">${item.desc||''}</div></div><button class="${btnClass}" onclick="buyOrEquip('${category}','${item.id}',${item.cost})">${btnText}</button>`;
+                container.appendChild(row);
+            });
+        }
+
+        window.buyOrEquip = function (category, id, cost) {
+            const isOwned = inventory[category].includes(id);
+            const typeKey = category === 'blades' ? 'blade' : category === 'balls' ? 'ball' : 'level';
+            if (isOwned) {
+                equipped[typeKey] = id;
+            } else {
+                if (wallet.coins >= cost) {
+                    wallet.coins -= cost;
+                    inventory[category].push(id);
+                    equipped[typeKey] = id;
+                } else {
+                    showModal('Недостаточно монет!', '💸');
+                    return;
+                }
+            }
+            saveGame();
+            renderShop(category);
+        };
+
+        // Локальная таблица лидеров (без сервера) — показывает только твой рекорд.
+        // Если захочешь настоящий онлайн-рейтинг между игроками, для этого нужен
+        // отдельный бэкенд (например, Firebase) — скажи, и я помогу подключить.
+        function renderLocalLeaderboard() {
+            const container = document.getElementById('leaderboardContainer');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="leader-row" style="color:#00ffff"><span>1. Вы</span><span>${wallet.bestScore}</span></div>`;
+        }
+
+        saveGame();
+        loop();
+
+    }); // DOMContentLoaded
+
+    // Регистрация service worker — обязательное требование для PWA/PWABuilder
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('service-worker.js').catch(e => console.warn('SW error:', e));
+        });
+    }
+    </script>
+</body>
+</html>
